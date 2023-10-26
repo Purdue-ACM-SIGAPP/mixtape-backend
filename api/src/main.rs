@@ -30,6 +30,7 @@ use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
 mod user;
+mod auth;
 
 
 #[route("/", method = "GET", method = "HEAD")]
@@ -96,6 +97,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(qs_config)
             .service(root)
             .service(web::scope("/u").configure(user::config))
+            .service(auth::auth)
+            .service(auth::register)
     })
     .bind(("0.0.0.0", 80))?
     .run()
