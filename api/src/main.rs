@@ -17,6 +17,7 @@ use actix_web::{route, web, App, FromRequest, HttpRequest, HttpResponse, HttpSer
 use anyhow::Result;
 use build_time::build_time_utc;
 use futures_util::lock::Mutex;
+use mongodb::{Database, Client};
 use serde::Deserialize;
 use serde_qs::actix::QsQueryConfig;
 use serde_qs::Config;
@@ -28,9 +29,12 @@ use tracing_bunyan_formatter::{JsonStorageLayer, BunyanFormattingLayer};
 use tracing_log::LogTracer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
+use utils::phone::TwilioPhoneClient;
 
 mod user;
-
+mod friend;
+mod safety;
+mod playlist;
 
 #[route("/", method = "GET", method = "HEAD")]
 async fn root() -> impl Responder {
@@ -53,7 +57,7 @@ struct State {
 impl State {
     pub async fn new() -> Result<Self> {
         Ok(Self {
-            mongo_client: db::connect(dotenv!("DB_URI"), dotenv!("DB_NAME")).await?,
+            mongo_client: db::connect(dotenv!("DB_URI")).await?,
             twilio_client: TwilioPhoneClient::new(),
         })
     }
@@ -95,7 +99,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(state_move)
             .app_data(qs_config)
             .service(root)
-            .service(web::scope("/u").configure(user::config))
+            .configure(friend::config)
+            .configure(playlist::config)
+            .configure(safety::config)
+            .configure(user::config)
     })
     .bind(("0.0.0.0", 80))?
     .run()
